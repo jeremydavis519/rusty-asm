@@ -1,3 +1,5 @@
+# rusty-asm
+
 A layer of syntactic sugar between Rust and inline assembly
 
 Rust currently has the [`asm!`] macro for writing inline ASM within a function defined in Rust. It uses the same basic
