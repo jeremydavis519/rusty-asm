@@ -50,13 +50,13 @@
 //! variables capable of storing information about how they'll be used in upcoming inline ASM blocks, and (2) to parse `asm`
 //! blocks that allow variables defined with the new syntax to be used directly in the ASM code.
 //! 
-//! # Setup
+//! ## Setup
 //! 
 //! To use this crate, add the following to `Cargo.toml`:
 //! 
 //! ```toml
 //! [dependencies]
-//! rusty-asm = "0.0.1"
+//! rusty-asm = "0.1.0"
 //! ```
 //! 
 //! Then reference the crate in your main source file and activate the features you'll need:
@@ -68,7 +68,7 @@
 //! # fn main() {}
 //! ```
 //! 
-//! # Basic Syntax
+//! ## Basic Syntax
 //! 
 //! In the place where you want to add some inline ASM, call `rusty_asm!` like so:
 //! 
@@ -99,7 +99,7 @@
 //! Also, it's possible to have multiple `asm` blocks in the same `rusty_asm!` block, in case you want to reuse your bridge
 //! variables (see below).
 //! 
-//! # Bridge Variables
+//! ## Bridge Variables
 //! 
 //! A _bridge variable_ is a variable that bridges the gap between Rust and ASM by incorporating the input/ouput/clobber
 //! information in its definition. They can only be defined inside `rusty_asm!` blocks, and because the macro makes a new scope,
@@ -146,7 +146,7 @@
 //! In order to let Rust know how to work with the bridge variables, `rusty_asm!` removes the new keywords and constraints during
 //! macro expansion, so as far as Rust knows, they're just ordinary variables with inferred types.
 //! 
-//! # The `asm` Block
+//! ## The `asm` Block
 //! 
 //! When an `asm` block is encountered, it is converted directly into an asm! invocation, using all of the constraints that have
 //! been created thus far. The `asm` block's syntax is as follows:
@@ -164,14 +164,14 @@
 //! In order to reference a bridge variable from inside an `asm` block, insert `$<ident>` into the code, where `<ident>` is the
 //! variable's identifier. As with the `asm!` macro, `$$` is the way to write an escaped dollar sign.
 //! 
-//! # The `rusty_asm!` Block and Scope
+//! ## The `rusty_asm!` Block and Scope
 //! 
 //! The new macro puts its entire contents inside a new scope, so that any variables defined therein are dropped at the end. Their
 //! values can be moved to variables outside the macro's scope before it ends, using regular Rust code, if they need to be preserved.
 //! In addition, just like any of Rust's code blocks, this one has a return value that can be used by ending the block with an
 //! expression.
 //! 
-//! # Further Reading
+//! ## Further Reading
 //! 
 //! There are too many platform-specific constraints and options that you can specify to list them all here. Follow these links for
 //! more information.
@@ -183,7 +183,7 @@
 //! [The Rust book: Inline Assembly chapter]: https://doc.rust-lang.org/1.12.0/book/inline-assembly.html
 //! [LLVM's inline assembly documentation]: http://llvm.org/docs/LangRef.html#inline-assembler-expressions
 //! 
-//! # Usage Examples
+//! ## Usage Examples
 //! 
 //! ```ignore
 //! # #![feature(proc_macro)]
