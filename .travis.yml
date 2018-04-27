@@ -21,7 +21,7 @@ addons:
       - binutils-dev # only required for the `--verify` flag
 
 # load travis-cargo
-before-script:
+before_script:
   - |
     pip install 'travis-cargo<0.2' --user &&
     export PATH=$HOME/.local/bin:$PATH
