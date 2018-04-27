@@ -13,8 +13,7 @@
 
 //! This file contains all of the integration tests for the `rusty-asm` crate.
 
-#![feature(proc_macro)]
-#![feature(asm)]
+#![feature(proc_macro, proc_macro_non_items, asm)]
 extern crate rusty_asm;
 use rusty_asm::rusty_asm;
 

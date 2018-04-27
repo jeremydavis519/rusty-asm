@@ -62,7 +62,7 @@
 //! Then reference the crate in your main source file and activate the features you'll need:
 //! 
 //! ```ignore
-//! #![feature(proc_macro)]
+//! #![feature(proc_macro, proc_macro_non_items, asm)]
 //! extern crate rusty_asm;
 //! use rusty_asm::rusty_asm; // Because who wants to write `rusty_asm::rusty_asm!`?
 //! # fn main() {}
