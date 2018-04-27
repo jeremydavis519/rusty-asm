@@ -1,4 +1,3 @@
-sudo: false
 language: rust
 rust:
 - stable
@@ -10,36 +9,36 @@ matrix:
   - rust: beta
   fast_finish: true
 cache: cargo
+sudo: required
 
 # necessary for travis-cargo coveralls --no-sudo
 addons:
   apt:
     packages:
-    - libcurl4-openssl-dev
-    - libelf-dev
-    - libdw-dev
-    - binutils-dev # only required for the `--verify` flag
+    - libssl-dev
 
 before_script:
 - |
-  pip install 'travis-cargo<0.2' --user &&
-  export PATH=$HOME/.local/bin:$PATH
+  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
+    export RUSTYASM_FEATURES="$RUSTYASM_NIGHTLY_FEATURES"
+    export RUSTYASM_IS_MAIN_VERSION=true
+  fi
 script:
 - |
-  travis-cargo build &&
-  travis-cargo test &&
-  travis-cargo bench &&
-  travis-cargo --only nightly doc
+  cargo clean &&
+  cargo build --features "$RUSTYASM_FEATURES" &&
+  cargo test --features "$RUSTYASM_FEATURES" &&
+  cargo bench --features "$RUSTYASM_FEATURES" &&
+  if [[ "$RUSTYASM_IS_MAIN_VERSION" == true ]]; then
+    cargo doc --features "$RUSTYASM_FEATURES"
+  fi
 after_success:
-  # upload the documentation from the build with stable (automatically only actually
-  # runs on the master branch, not individual PRs)
-- travis-cargo --only nightly doc-upload
-  # measure code coverage and upload to coveralls.io (the verify
-  # argument mitigates kcov crashes due to malformed debuginfo, at the
-  # cost of some speed <https://github.com/huonw/travis-cargo/issues/12>)
-- travis-cargo coveralls --no-sudo --verify
+- |
+  if [[ "$RUSTYASM_IS_MAIN_VERSION" == true ]]; then
+    bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
+    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+  fi
 env:
   global:
     # features to add to nightly builds
-  - TRAVIS_CARGO_NIGHTLY_FEATURE="nightly proc-macro"
-  - secure: FZVHl8C12LKWzKExH/mTg9Vssfm+m1EQ4gZMbz+ivOn0ysypeC6+vWy+nrV2FNtuIXxMb23ix1SrV6LmPoSeD5BuKD8dFJCFCcog2pHggUwyquYysEKIqUlB+v0SnvVibP4gx17JPsFOwcNQlkeFxbpjXP+/rKBw4g01OjRcHTiERNxrdD6tkRj15M3VzM/vVK7sVzAfWcPpCd2lKK7Bo3xmbAv0+7m43ZU5ukNvCCbnWJIm2s+GKdTGkfXT7BN2NMdMldp8D6o6sG5bQ3Iam3Sek76QUGO9KCZxrG3u6wATQD9VphvscaHHzIdY2of3uvTfcSbzU37F90Q2/VsOvGkEI77aK4Xf5nuNGrUvI+fOFVLukHUuGZ2otvmwJLDOm5q55EJkDfxPBXQWmQC02l9+5ZXsctcvp4pCD15L6OCM2vOsmKgOL+UMlU8h17H/eJ+8WkMopz1cGU4t6kzN8L4hQZ59tgKoBld5Va4tfyMufOThaYTRRJfB+iSYhajzLZ0nRO1ooePcB0fWHLJSB+tXiZaMKaSnAGI1Ae4n3GhMCwPJiPsMMwXMgiwOrM8OZrwoFoKRpwYhhZ7zepXtykgiGow7AHQ2gx8AkBJvTdB7lEdJkxUbkFCrjCXLuMI2EWvGCN2F5Z4AmCZfUGNPpCxXuH0rpJc6g/rYCFp8y3U=
+  - RUSTYASM_NIGHTLY_FEATURES="nightly proc-macro"
