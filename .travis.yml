@@ -1,4 +1,45 @@
+sudo: false
 language: rust
 rust:
+  - stable
+  - beta
   - nightly
+matrix:
+  allow_failures: # These are allowed to fail until procedural macros are stabilized.
+    - rust: stable
+    - rust: beta
+  fast_finish: true
 cache: cargo
+
+# necessary for `travis-cargo coveralls --no-sudo`
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - binutils-dev # only required for the `--verify` flag
+
+# load travis-cargo
+before-script:
+  - |
+    pip install 'travis-cargo<0.2' --user &&
+    export PATH=$HOME/.local/bin:$PATH
+
+# the main build
+script:
+  - |
+    travis-cargo build &&
+    travis-cargo test &&
+    travis-cargo bench &&
+    travis-cargo --only stable doc
+after_success:
+  # measure code coverage and upload to coveralls.io (the verify
+  # argument mitigates kcov crashes due to malformed debuginfo, at the
+  # cost of some speed <https://github.com/huonw/travis-cargo/issues/12>)
+  - travis-cargo coveralls --no-sudo --verify
+
+env:
+  global:
+    # override the default `--features unstable` used for the nightly branch
+    - TRAVIS_CARGO_NIGHTLY_FEATURE="nightly proc-macro"

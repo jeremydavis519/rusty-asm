@@ -10,19 +10,21 @@ categories = ["development-tools"]
 readme = "README.md"
 include = ["/Cargo.toml", "/src/**/*.rs", "/README.md", "/LICENSE-APACHE", "/LICENSE-MIT"]
 
+[badges]
+travis-ci = { repository = "jeremydavis519/rusty-asm", branch = "master" }
+coveralls = { repository = "jeremydavis519/rusty-asm", branch = "master", service = "github" }
+
 [lib]
 crate-type = ["proc-macro"]
 
 [dependencies]
 proc-macro2 = "0.3"
 quote = "0.5"
-syn = { version = "0.13", default-features = false, features = ["clone-impls", "derive", "full", "parsing", "printing", "extra-traits"] }
-unicode-xid = { version = "0.1", optional = true }
+syn = { version = "0.13", default-features = false, features = ["clone-impls", "derive", "full", "parsing", "printing", "visit-mut"] }
+unicode-xid = { version = "0.1" }
 
 [features]
-default = ["nightly", "proc-macro"]
+default = [] # Building with the default features will work as soon as procedural macros become stable.
 
 nightly = ["proc-macro2/nightly"]
 proc-macro = ["proc-macro2/proc-macro"]
-
-stable-unicode-xid = ["unicode-xid"]

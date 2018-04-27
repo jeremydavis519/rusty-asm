@@ -236,13 +236,9 @@
 //! # }
 //! ```
 
-#![feature(proc_macro)]
+#![cfg_attr(feature = "nightly", feature(proc_macro))]
 
 #![recursion_limit = "128"]
-
-#![cfg_attr(not(feature = "stable-unicode-xid"), feature(rustc_private))]
-#[cfg(feature = "stable-unicode-xid")]
-extern crate unicode_xid;
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -250,6 +246,7 @@ extern crate proc_macro2;
 extern crate quote;
 #[macro_use]
 extern crate syn;
+extern crate unicode_xid;
 
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -261,15 +258,15 @@ use syn::{Expr, Ident, LitStr, Stmt};
 use syn::buffer::Cursor;
 use syn::punctuated::Punctuated;
 use syn::synom::{PResult, Synom};
+use unicode_xid::UnicodeXID;
 
+/// Allows bridge variables, clobbers, and `asm` blocks to be defined.
+/// 
+/// See the [module documentation] for details.
+/// 
+/// [module documentation]: index.html
 #[proc_macro]
 pub fn rusty_asm(ts: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // TODO: If this is inside another `rusty_asm!` block, keep access to all the bridge
-    //       variables defined in the scopes that contain the current scope.
-    
-    // TODO: In `rusty_block! { { let a: inout("r") = x; } asm { ... } }`, the `asm` block
-    //       shouldn't have access to `a`, since Rust has already dropped it.
-    
     match syn::parse2::<RustyAsmBlock>(ts.into()) {
         Ok(rusty_block) => quote!(#rusty_block),
         Err(x) => {
@@ -362,7 +359,7 @@ impl RustyAsmBlock {
                     stmt.bridge_variables_in = bridge_variables_in.clone();
                     stmt.clobbers = clobbers.clone();
                 },
-                _ => {}
+                RustyAsmStmt::Stmt(_) => {}
             };
         }
         RustyAsmBlock { stmts }
@@ -698,7 +695,7 @@ impl InnerAsmBlock {
             } else {
                 // Couldn't find the identifier anywhere. Issue a warning.
                 if cfg!(all(feature = "nightly", feature = "proc-macro")) {
-                    warn(span, format!("unrecognized identifier `{}`", ident));
+                    warn(span, format!("unrecognized bridge variable `{}`", ident));
                     help(span, "it must be declared in this `rusty_asm` block with `in`, `out`, or `inout`");
                 }
                 None
@@ -718,11 +715,11 @@ impl InnerAsmBlock {
         if let Some(first_char) = chars.next() {
             result.push(first_char);
             length += 1;
-            if first_char != '_' && !first_char.is_xid_start() {
+            if first_char != '_' && !UnicodeXID::is_xid_start(first_char) {
                 return None; // Invalid first character.
             }
             for c in chars {
-                if !c.is_xid_continue() {
+                if !UnicodeXID::is_xid_continue(c) {
                     break; // We've reached the end of the identifier before the end of the string.
                 }
                 result.push(c);
