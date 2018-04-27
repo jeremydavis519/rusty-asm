@@ -11,7 +11,6 @@ matrix:
 cache: cargo
 sudo: required
 
-# necessary for travis-cargo coveralls --no-sudo
 addons:
   apt:
     packages:
@@ -36,7 +35,7 @@ after_success:
 - |
   if [[ "$RUSTYASM_IS_MAIN_VERSION" == true ]]; then
     bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID -- --features "$RUSTYASM_FEATURES"
   fi
 env:
   global:
