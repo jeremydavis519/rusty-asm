@@ -35,7 +35,7 @@ after_success:
 - |
   if [[ "$RUSTYASM_IS_MAIN_VERSION" == true ]]; then
     bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID -- --features "$RUSTYASM_FEATURES"
+    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID --features "$RUSTYASM_FEATURES"
   fi
 env:
   global:
