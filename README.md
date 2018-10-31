@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/jeremydavis519/rusty-asm.svg?branch=master)](https://travis-ci.org/jeremydavis519/rusty-asm) [![Coverage Status](https://coveralls.io/repos/github/jeremydavis519/rusty-asm/badge.svg?branch=master)](https://coveralls.io/github/jeremydavis519/rusty-asm?branch=master)
+
 # rusty-asm
 
 A layer of syntactic sugar between Rust and inline assembly
