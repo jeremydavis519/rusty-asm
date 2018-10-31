@@ -14,8 +14,8 @@
 //! A layer of syntactic sugar between Rust and inline assembly
 //!
 //! Rust currently has the [`asm!`] macro for writing inline ASM within a function defined in Rust. It uses the same basic
-//! format as GCC uses for its own inline ASM--and that format is _awful_. I have yet to hear of anyone who actually likes it.
-//! Here's a small example, taken from [the OSDev wiki] and translated into Rust:
+//! format as GCC uses for its own inline ASM--and that format isn't the most ergonomic. Here's a small example, taken from
+//! [the OSDev wiki] and translated into Rust:
 //!
 //! [`asm!`]: https://doc.rust-lang.org/1.12.0/book/inline-assembly.html
 //! [the OSDev wiki]: https://wiki.osdev.org/Inline_Assembly/Examples
@@ -41,7 +41,7 @@
 //!
 //! The `asm!` macro is currently an unstable, nightly-only feature. From what I've seen, there are several reasons, but one of
 //! them is the syntax. It's too easy to forget the precise order of things (which come first: inputs or outputs?), and parts of
-//! it are needlessly redundant. Using `"=r"`, `"r"`, or `"~r"` means the register is, respectively, an output, and input, or
+//! it are needlessly redundant. Using `"=r"`, `"r"`, or `"~r"` means the register is, respectively, an output, an input, or
 //! clobbered, but the different types also have to be separated by colons. So using `asm!`, the programmer has to remember both
 //! ways to tell the compiler what it should expect to happen to each register.
 //!
