@@ -8,13 +8,7 @@ env:
 - RUSTYASM_FEATURES="proc-macro"
 allow_failures:
 - rust: stable
-  env: RUSTYASM_FEATURES=""
-- rust: stable
-  env: RUSTYASM_FEATURES="proc-macro"
 - rust: beta
-  env: RUSTYASM_FEATURES=""
-- rust: beta
-  env: RUSTYASM_FEATURES="proc-macro"
 
 cache: cargo
 sudo: required
@@ -41,3 +35,5 @@ script:
 - cargo bench --features "$RUSTYASM_FEATURES"
 - cargo doc --features "$RUSTYASM_FEATURES"
 - cargo test --features "$RUSTYASM_FEATURES" --release
+
+fast_finish: true
