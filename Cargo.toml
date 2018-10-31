@@ -18,9 +18,9 @@ coveralls = { repository = "jeremydavis519/rusty-asm", branch = "master", servic
 crate-type = ["proc-macro"]
 
 [dependencies]
-proc-macro2 = "0.3"
-quote = "0.5"
-syn = { version = "0.13", default-features = false, features = ["clone-impls", "derive", "full", "parsing", "printing", "visit-mut"] }
+proc-macro2 = "0.4"
+quote = "0.6"
+syn = { version = "0.15", default-features = false, features = ["clone-impls", "derive", "full", "parsing", "printing", "visit-mut", "extra-traits"] }
 unicode-xid = { version = "0.1" }
 
 [features]
