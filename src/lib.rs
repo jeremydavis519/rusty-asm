@@ -364,7 +364,8 @@ fn rusty_asm_internal(ts: TokenStream) -> TokenStream {
         Ok(rusty_block) => quote!(#rusty_block),
         Err(x) => {
             let message = format!("{}", x);
-            quote!(compile_error!(#message))
+            error(x.span(), message);
+            panic!("invalid rusty_asm! block");
         }
     }
 }
@@ -621,6 +622,7 @@ impl LetBridgeStmt {
                             ident: self.bridge_ident.clone(),
                             llvm_constraint: (String::from("=") + self.constraint_string.value().as_str(), span)
                         }) {
+                    // If a duplicate `out` variable was found, use that index instead of a new one.
                     index = unexpected_index;
                 }
                 Self::push_variable(bridge_variables_in, BridgeVariable {
@@ -913,6 +915,14 @@ fn parenthesized(input: ParseStream) -> parse::Result<ParseBuffer> {
 }
 
 #[cfg(all(feature = "nightly", feature = "proc-macro"))]
+fn error<T: Into<String>>(span: Span, message: T) {
+    span.unstable().error(message);
+}
+
+#[cfg(not(all(feature = "nightly", feature = "proc-macro")))]
+fn error<T: Into<String>>(_: Span, _: T) {}
+
+#[cfg(all(feature = "nightly", feature = "proc-macro"))]
 fn warn<T: Into<String>>(span: Span, message: T) {
     span.unstable().warning(message);
 }
@@ -931,33 +941,51 @@ fn help<T: Into<String>>(_: Span, _: T) {}
 #[cfg(test)]
 mod tests {
     extern crate runtime_macros;
-    use self::runtime_macros::emulate_macro_expansion;
+    use self::runtime_macros::emulate_macro_expansion_fallible;
     use super::rusty_asm_internal;
     use std::{env, fs};
     use std::path::PathBuf;
 
     #[test]
     fn code_coverage() {
-        // Loop through all the files in `tests/` and its subdirectories.
+        // Loop through all the files in `tests/`.
         let mut path = env::current_dir().unwrap();
         path.push("tests");
-        cover_tests(path);
+        for res in path.read_dir().unwrap() {
+            let dir_entry = res.unwrap();
+            let path = dir_entry.path();
+            if path.is_file() {
+                cover_tests(path, true);
+            }
+        }
     }
 
-    fn cover_tests(path: PathBuf) {
-        match fs::read_dir(path.clone()) {
-            Ok(dir) => {
-                for dir_entry in dir {
-                    if let Ok(dir_entry) = dir_entry {
-                        cover_tests(dir_entry.path());
-                    }
-                }
-            },
-            Err(_) => {
-                if let Ok(file) = fs::File::open(path) {
-                    emulate_macro_expansion(file, "rusty_asm", rusty_asm_internal);
-                }
+    #[test]
+    fn compile_fail() {
+        // Loop through all the files in `tests/compile-fail`, making sure none of them compile.
+        let mut path = env::current_dir().unwrap();
+        path.push("tests");
+        path.push("compile-fail");
+        for res in path.read_dir().unwrap() {
+            let dir_entry = res.unwrap();
+            let path = dir_entry.path();
+            if path.is_file() {
+                println!("{:#?} shouldn't compile", path);
+                cover_tests(path, false);
             }
+        }
+    }
+
+    fn cover_tests(path: PathBuf, should_compile: bool) {
+        if let Ok(file) = fs::File::open(path) {
+            let res = emulate_macro_expansion_fallible(file, "rusty_asm", rusty_asm_internal);
+            if let Err(ref e) = res {
+                println!("Error: {}", e);
+            } else {
+                println!("Compiled successfully");
+            }
+            // Make sure the macro invocation was or wasn't valid, as appropriate.
+            assert!((should_compile && res.is_ok()) || (!should_compile && res.is_err()));
         }
     }
 }

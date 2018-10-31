@@ -11,8 +11,6 @@
 // ANY KIND, either express or implied. See the applicable license for the
 // specific language governing permissions and limitations under that license.
 
-//! This file contains all of the integration tests for the `rusty-asm` crate.
-
 #![feature(proc_macro_hygiene, asm)]
 extern crate rusty_asm;
 use rusty_asm::rusty_asm;
@@ -138,6 +136,31 @@ fn bad_identifiers() {
     }
 }
 
+#[test]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn inout_out_inout() {
+    unsafe {
+        rusty_asm! {
+            let mut foo: u32: inout("r") = 8;
+            asm {
+                "addl $foo, $foo"
+            }
+            assert_eq!(foo, 16);
+            let mut foo: u32: out("r");
+            asm {
+                "movl $$0x20, $foo"
+            }
+            assert_eq!(foo, 32);
+            let mut foo: inout("r") = foo;
+            asm {
+                "addl $foo, $foo"
+            }
+            assert_eq!(foo, 64);
+        }
+    }
+}
+
+// TODO: This test can be uncommented whenever compiletest_rs starts expanding macros.
 /*#[test]
 fn compile_fail() {
     let mut config = compiletest::Config::default();

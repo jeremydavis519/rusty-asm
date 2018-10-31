@@ -29,5 +29,4 @@ default = [] # The default build is more stable but doesn't let us produce custo
 proc-macro = ["proc-macro2/nightly", "proc-macro2/proc-macro"]
 
 [dev-dependencies]
-runtime-macros = "0.2"
-# compiletest_rs = "*"
+runtime-macros = "0.3"
