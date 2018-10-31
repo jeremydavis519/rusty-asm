@@ -210,7 +210,7 @@ While `rusty_asm!` tries to parse arbitrary Rust code, it can't yet do anything 
 inside nested blocks. So, for instance, the following code doesn't compile because it tries to
 define a bridge variable and use an `asm` block inside `if` and `else` blocks:
 
-```compile_fail
+```rust
 // Sends 1, 2, or 4 bytes at once to an ISA address (x86/x64).
 unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
     rusty_asm! {
