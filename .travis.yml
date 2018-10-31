@@ -3,41 +3,35 @@ rust:
 - stable
 - beta
 - nightly
-matrix:
-  allow_failures:
-  - rust: stable
-  - rust: beta
-  fast_finish: true
+env:
+- RUSTYASM_FEATURES=""
+- RUSTYASM_FEATURES="proc-macro"
+allow_failures:
+- rust: stable
+- rust: beta
+
 cache: cargo
 sudo: required
+
+before_cache: |
+  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
+    RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+  fi
+
+after_success: |
+  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
+    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID --features "$RUSTYASM_FEATURES"
+  fi
 
 addons:
   apt:
     packages:
     - libssl-dev
 
-before_script:
-- |
-  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
-    export RUSTYASM_FEATURES="$RUSTYASM_NIGHTLY_FEATURES"
-    export RUSTYASM_IS_MAIN_VERSION=true
-  fi
 script:
-- |
-  cargo clean &&
-  cargo build --features "$RUSTYASM_FEATURES" &&
-  cargo test --features "$RUSTYASM_FEATURES" &&
-  cargo bench --features "$RUSTYASM_FEATURES" &&
-  if [[ "$RUSTYASM_IS_MAIN_VERSION" == true ]]; then
-    cargo doc --features "$RUSTYASM_FEATURES"
-  fi
-after_success:
-- |
-  if [[ "$RUSTYASM_IS_MAIN_VERSION" == true ]]; then
-    bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID --features "$RUSTYASM_FEATURES"
-  fi
-env:
-  global:
-    # features to add to nightly builds
-  - RUSTYASM_NIGHTLY_FEATURES="nightly proc-macro"
+- cargo clean
+- cargo build --features "$RUSTYASM_FEATURES"
+- cargo test --features "$RUSTYASM_FEATURES"
+- cargo bench --features "$RUSTYASM_FEATURES"
+- cargo doc --features "$RUSTYASM_FEATURES"
+- cargo test --features "$RUSTYASM_FEATURES" --release

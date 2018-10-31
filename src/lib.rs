@@ -72,6 +72,15 @@
 //!
 //! Note that you'll still need a nightly compiler for this. `rusty_asm` doesn't make inline ASM stable.
 //!
+//! ### Supported Features
+//!
+//! The following features are available:
+//!
+//! * `proc-macro`: Causes [`proc-macro2`](https://crates.io/crates/proc-macro2) to act as a thin wrapper over
+//!   [`proc_macro`](https://doc.rust-lang.org/proc_macro/index.html), including the parts that are still unstable.
+//!   The benefit of this feature is that it allows `rusty-asm` to provide its own warnings, which should make
+//!   debugging your own code easier.
+//!
 //! ## Basic Syntax
 //!
 //! In the place where you want to add some inline ASM, call `rusty_asm!` like so:

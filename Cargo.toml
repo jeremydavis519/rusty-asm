@@ -24,7 +24,6 @@ syn = { version = "0.15", default-features = false, features = ["clone-impls", "
 unicode-xid = { version = "0.1" }
 
 [features]
-default = [] # Building with the default features will work as soon as procedural macros become stable.
+default = [] # The default build is more stable but doesn't let us produce custom warnings from the macro.
 
-nightly = ["proc-macro2/nightly"]
-proc-macro = ["proc-macro2/proc-macro"]
+proc-macro = ["proc-macro2/nightly", "proc-macro2/proc-macro"]
