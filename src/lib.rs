@@ -124,16 +124,13 @@
 //! Each of these keywords is used in a "let" statement to define a bridge variable. The exact syntax is as follows:
 //!
 //! ```text
-//! let <identifier>: [<type>:] in(<constraint>) [= <expression>];
-//! let mut <identifier>: [<type>:] out(<constraint>) [= <expression>];
-//! let mut <identifier>: [<type>:] inout(<constraint>) [= <expression>];
+//! let [mut] <identifier>: [<type>:] in(<constraint>) [= <expression>];
+//! let [mut] <identifier>: [<type>:] out(<constraint>) [= <expression>];
+//! let [mut] <identifier>: [<type>:] inout(<constraint>) [= <expression>];
 //! ```
 //!
-//! Currently, those `mut` assignments are hard rules. The parser won't accept a mutable `in` variable or an immutable `out` or
-//! `inout` variable. That restriction may be lifted in the future if it turns out to be an issue. The idea is that their
-//! mutability in Rust should match their mutability in ASM. The optional `<type>` is any Rust type, as far as the macro knows,
-//! but it should be something that makes sense to put in the appropriate register (e.g. `usize`, `i8`, etc. for a general-purpose
-//! integer register).
+//! The optional `<type>` is any Rust type, as far as the macro knows, but it should be something that makes sense to put in the
+//! appropriate register (e.g. `usize`, `i8`, etc. for a general-purpose integer register).
 //!
 //! In addition, you can specify that you'll clobber a particular register (or that you'll clobber memory) with this syntax:
 //!
@@ -327,7 +324,7 @@
 //! # fn main() {}
 //! ```
 
-#![cfg_attr(all(feature = "nightly", feature = "proc-macro"), feature(proc_macro_diagnostic))]
+#![cfg_attr(all(feature = "proc-macro"), feature(proc_macro_diagnostic))]
 #![recursion_limit = "128"]
 
 extern crate proc_macro;
@@ -363,9 +360,14 @@ fn rusty_asm_internal(ts: TokenStream) -> TokenStream {
     match syn::parse2::<RustyAsmBlock>(ts) {
         Ok(rusty_block) => quote!(#rusty_block),
         Err(x) => {
-            let message = format!("{}", x);
-            error(x.span(), message);
-            panic!("invalid rusty_asm! block");
+            // The test harness relies on panics, but producing a `compile_error!` gives better
+            // error messages.
+            if cfg!(test) {
+                panic!("invalid rusty_asm! block: {}", x);
+            } else {
+                let message = format!("{}", x);
+                quote!(compile_error!(#message))
+            }
         }
     }
 }
@@ -510,7 +512,12 @@ impl Parse for LetBridgeStmt {
     fn parse(input: ParseStream) -> parse::Result<Self> {
         // `let [mut] <identifier>:`
         let let_keyword = input.parse::<Token![let]>()?;
-        let mut_keyword = input.parse::<Token![mut]>().ok();
+        let mut_keyword;
+        if input.peek(Token![mut]) {
+            mut_keyword = input.parse::<Token![mut]>().ok();
+        } else {
+            mut_keyword = None;
+        }
         let bridge_ident = input.parse::<Ident>()?;
         let colon = input.parse::<Token![:]>()?;
 
@@ -527,17 +534,18 @@ impl Parse for LetBridgeStmt {
 
         // `<constraint>`
         let constraint_keyword;
-        if mut_keyword.is_some() {
-            if input.parse::<keyword::out>().is_ok() {
-                constraint_keyword = ConstraintKeyword::Out;
-            } else if input.parse::<keyword::inout>().is_ok() {
-                constraint_keyword = ConstraintKeyword::InOut;
-            } else {
-                return Err(parse::Error::new(input.cursor().span(), "expected `out` or `inout`"));
-            }
-        } else {
-            input.parse::<Token![in]>()?;
+        let lookahead = input.lookahead1();
+        if lookahead.peek(Token![in]) {
+            let _ = input.parse::<Token![in]>();
             constraint_keyword = ConstraintKeyword::In;
+        } else if lookahead.peek(keyword::out) {
+            let _ = input.parse::<keyword::out>();
+            constraint_keyword = ConstraintKeyword::Out;
+        } else if lookahead.peek(keyword::inout) {
+            let _ = input.parse::<keyword::inout>();
+            constraint_keyword = ConstraintKeyword::InOut;
+        } else {
+            return Err(lookahead.error());
         }
 
         // `(<constraint_string>)` - e.g. `("r")`
@@ -914,28 +922,20 @@ fn parenthesized(input: ParseStream) -> parse::Result<ParseBuffer> {
     Ok(content)
 }
 
-#[cfg(all(feature = "nightly", feature = "proc-macro"))]
-fn error<T: Into<String>>(span: Span, message: T) {
-    span.unstable().error(message);
-}
-
-#[cfg(not(all(feature = "nightly", feature = "proc-macro")))]
-fn error<T: Into<String>>(_: Span, _: T) {}
-
-#[cfg(all(feature = "nightly", feature = "proc-macro"))]
+#[cfg(all(feature = "proc-macro", not(test)))]
 fn warn<T: Into<String>>(span: Span, message: T) {
     span.unstable().warning(message);
 }
 
-#[cfg(not(all(feature = "nightly", feature = "proc-macro")))]
+#[cfg(not(all(feature = "proc-macro", not(test))))]
 fn warn<T: Into<String>>(_: Span, _: T) {}
 
-#[cfg(all(feature = "nightly", feature = "proc-macro"))]
+#[cfg(all(feature = "proc-macro", not(test)))]
 fn help<T: Into<String>>(span: Span, message: T) {
     span.unstable().help(message);
 }
 
-#[cfg(not(all(feature = "nightly", feature = "proc-macro")))]
+#[cfg(not(all(feature = "proc-macro", not(test))))]
 fn help<T: Into<String>>(_: Span, _: T) {}
 
 #[cfg(test)]

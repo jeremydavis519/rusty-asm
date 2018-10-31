@@ -17,7 +17,7 @@ use rusty_asm::rusty_asm;
 
 //extern crate compiletest_rs as compiletest;
 
-use std::path::Path;
+//use std::path::Path;
 
 #[test]
 fn empty() {
@@ -112,7 +112,7 @@ fn shadow_bridge_var() {
 fn literal_dollar() {
     unsafe {
         rusty_asm! {
-            let mut c: u8: out("r");
+            let c: u8: out("r");
             asm {
                 "movb $$0x40, $c"
             }
@@ -146,7 +146,7 @@ fn inout_out_inout() {
                 "addl $foo, $foo"
             }
             assert_eq!(foo, 16);
-            let mut foo: u32: out("r");
+            let foo: u32: out("r");
             asm {
                 "movl $$0x20, $foo"
             }
@@ -219,7 +219,7 @@ mod util {
                 let _dividend_lo: in("{eax}") = (a & 0xffff_ffff) as u32;
                 let _dividend_hi: in("{edx}") = ((a >> 32) & 0xffff_ffff) as u32;
                 let divisor: in("r") = b;
-                let mut quotient: out("{eax}");
+                let quotient: out("{eax}");
                 clobber("edx"); // Ignoring the remainder
 
                 // If we didn't do this check here, the `asm` block might cause a crash that would
