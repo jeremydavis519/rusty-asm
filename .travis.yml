@@ -8,7 +8,13 @@ env:
 - RUSTYASM_FEATURES="proc-macro"
 allow_failures:
 - rust: stable
+  env: RUSTYASM_FEATURES=""
+- rust: stable
+  env: RUSTYASM_FEATURES="proc-macro"
 - rust: beta
+  env: RUSTYASM_FEATURES=""
+- rust: beta
+  env: RUSTYASM_FEATURES="proc-macro"
 
 cache: cargo
 sudo: required
