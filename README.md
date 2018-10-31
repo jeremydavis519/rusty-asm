@@ -9,7 +9,7 @@ Here's a small example, taken from [the OSDev wiki] and translated into Rust:
 [`asm!`]: https://doc.rust-lang.org/1.12.0/book/inline-assembly.html
 [the OSDev wiki]: https://wiki.osdev.org/Inline_Assembly/Examples
 
-```no_run
+```rust
 # #![feature(asm)]
 // Retrieves a value from memory in a different segment than the one currently being used (x86[-64])
 unsafe fn farpeekl(segment_selector: u16, offset: *const u32) -> u32 {
@@ -50,7 +50,7 @@ rusty-asm = "0.1.0"
 
 Then reference the crate in your main source file and activate the features you'll need:
 
-```
+```rust
 #![feature(proc_macro_hygiene, asm)]
 # /*
 extern crate rusty_asm;
@@ -65,7 +65,7 @@ Note that you'll still need a nightly compiler for this. `rusty_asm` doesn't mak
 
 In the place where you want to add some inline ASM, call `rusty_asm!` like so:
 
-```ignore
+```rust
 # extern crate rusty_asm;
 # use rusty_asm::rusty_asm;
 # fn main() {
@@ -180,7 +180,7 @@ more information.
 
 ## Usage Examples
 
-```ignore
+```rust
 # #![feature(asm)]
 # extern crate rusty_asm;
 # use rusty_asm::rusty_asm;
@@ -197,7 +197,7 @@ unsafe fn disable_interrupts() {
 # fn main() {}
 ```
 
-```ignore
+```rust
 # #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 # #![feature(asm)]
 # extern crate rusty_asm;
@@ -272,7 +272,7 @@ invoke `rusty_asm!` again inside each of those blocks, redefining any bridge var
 need there. So, while it's not the cleanest solution, the above example would have to be
 changed to something like this:
 
-```ignore
+```rust
 # #![feature(asm)]
 # extern crate rusty_asm;
 # use rusty_asm::rusty_asm;
