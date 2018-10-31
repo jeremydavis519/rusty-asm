@@ -335,7 +335,7 @@ use std::str::Chars;
 
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt};
-use syn::{Expr, Ident, LitStr, Stmt};
+use syn::{Expr, Ident, LitStr, Stmt, Type};
 use syn::parse::{self, Parse, ParseBuffer, ParseStream};
 use syn::punctuated::Punctuated;
 use unicode_xid::UnicodeXID;
@@ -478,6 +478,7 @@ struct LetBridgeStmt {
     let_keyword: Token![let],
     mut_keyword: Option<Token![mut]>,
     bridge_ident: Ident,
+    explicit_type: Option<(Token![:], Type)>,
     constraint_keyword: ConstraintKeyword,
     constraint_string: LitStr,
     assignment: Option<(Token![=], Expr)>,
@@ -497,7 +498,18 @@ impl Parse for LetBridgeStmt {
         let let_keyword = input.parse::<Token![let]>()?;
         let mut_keyword = input.parse::<Token![mut]>().ok();
         let bridge_ident = input.parse::<Ident>()?;
-        input.parse::<Token![:]>()?;
+        let colon = input.parse::<Token![:]>()?;
+
+        // `[<type>:]`
+        let explicit_type;
+        if let Ok(parsed_type) = input.fork().parse::<Type>() {
+            // TODO: We're re-parsing an unbounded number of tokens here. Avoid this if possible.
+            let _ = input.parse::<Type>();
+            explicit_type = Some((colon, parsed_type));
+            input.parse::<Token![:]>()?;
+        } else {
+            explicit_type = None;
+        }
 
         // `<constraint>`
         let constraint_keyword;
@@ -533,6 +545,7 @@ impl Parse for LetBridgeStmt {
             let_keyword,
             mut_keyword,
             bridge_ident,
+            explicit_type,
             constraint_keyword,
             constraint_string,
             assignment,
@@ -549,6 +562,10 @@ impl ToTokens for LetBridgeStmt {
             mut_keyword.to_tokens(tokens);
         }
         self.bridge_ident.to_tokens(tokens);
+        if let Some((colon, ref explicit_type)) = self.explicit_type {
+            colon.to_tokens(tokens);
+            explicit_type.to_tokens(tokens);
+        }
         if let Some((assign_op, ref init_expr)) = self.assignment {
             assign_op.to_tokens(tokens);
             init_expr.to_tokens(tokens);

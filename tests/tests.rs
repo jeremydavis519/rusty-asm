@@ -65,6 +65,15 @@ fn inner_block_workaround() {
     }
 }
 
+#[test]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn explicit_types() {
+    assert_eq!(util::sub_u8(0, 0), 0);
+    assert_eq!(util::sub_u8(10, 2), 8);
+    assert_eq!(util::sub_u8(2, 10), -8);
+    assert_eq!(util::sub_u8(0, u8::max_value()), -(u8::max_value() as i16));
+}
+
 mod util {
     use rusty_asm::rusty_asm;
 
@@ -80,6 +89,22 @@ mod util {
                 }
 
                 a
+            }
+        }
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    pub fn sub_u8(a: u8, b: u8) -> i16 {
+        unsafe {
+            rusty_asm! {
+                let mut a: i16: inout("r") = a.into();
+                let b: i16: in("r") = b.into();
+
+                asm {
+                    "subw $b, $a"
+                }
+
+                a as i16
             }
         }
     }
