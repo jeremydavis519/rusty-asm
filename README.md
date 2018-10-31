@@ -10,7 +10,6 @@ Here's a small example, taken from [the OSDev wiki] and translated into Rust:
 [the OSDev wiki]: https://wiki.osdev.org/Inline_Assembly/Examples
 
 ```rust
-# #![feature(asm)]
 // Retrieves a value from memory in a different segment than the one currently being used (x86[-64])
 unsafe fn farpeekl(segment_selector: u16, offset: *const u32) -> u32 {
     let ret: u32;
@@ -23,7 +22,6 @@ unsafe fn farpeekl(segment_selector: u16, offset: *const u32) -> u32 {
     );
     ret
 }
-# fn main() {}
 ```
 
 (This example actually looks a little cleaner in my opinion than it does when written for GCC, but it could still use some work.)
@@ -52,11 +50,8 @@ Then reference the crate in your main source file and activate the features you'
 
 ```rust
 #![feature(proc_macro_hygiene, asm)]
-# /*
 extern crate rusty_asm;
 use rusty_asm::rusty_asm; // Because who wants to write `rusty_asm::rusty_asm!`?
-# */
-# fn main() {}
 ```
 
 Note that you'll still need a nightly compiler for this. `rusty_asm` doesn't make inline ASM stable.
@@ -66,10 +61,6 @@ Note that you'll still need a nightly compiler for this. `rusty_asm` doesn't mak
 In the place where you want to add some inline ASM, call `rusty_asm!` like so:
 
 ```rust
-# extern crate rusty_asm;
-# use rusty_asm::rusty_asm;
-# fn main() {
-# unsafe {
 rusty_asm! {
     // (arbitrary Rust statements go here)
 
@@ -79,8 +70,6 @@ rusty_asm! {
 
     // (possibly some cleanup code here)
 }
-# }
-# }
 ```
 
 The contents of the `asm` block need to be a string literal to make sure that Rust's parser doesn't mess up the
@@ -181,11 +170,6 @@ more information.
 ## Usage Examples
 
 ```rust
-# #![feature(asm)]
-# extern crate rusty_asm;
-# use rusty_asm::rusty_asm;
-#
-# #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 // Disables interrupts on an x86 CPU.
 unsafe fn disable_interrupts() {
     rusty_asm! {
@@ -194,15 +178,9 @@ unsafe fn disable_interrupts() {
         }                 // decide to "optimize" it away.
     };
 }
-# fn main() {}
 ```
 
 ```rust
-# #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-# #![feature(asm)]
-# extern crate rusty_asm;
-# use rusty_asm::rusty_asm;
-#
 // Shifts the hexadecimal digits of `existing` up and puts `digit` in the resulting gap.
 fn append_hex_digit(existing: usize, digit: u8) -> usize {
     assert!(digit < 0x10);
@@ -221,11 +199,9 @@ fn append_hex_digit(existing: usize, digit: u8) -> usize {
     }
 }
 
-# fn main() {
 assert_eq!(append_hex_digit(0, 0), 0);
 assert_eq!(append_hex_digit(0, 0xf), 0xf);
 assert_eq!(append_hex_digit(4, 2), 0x42);
-# }
 ```
 
 ## Limitations
@@ -235,11 +211,6 @@ inside nested blocks. So, for instance, the following code doesn't compile becau
 define a bridge variable and use an `asm` block inside `if` and `else` blocks:
 
 ```compile_fail
-# #![feature(asm)]
-# extern crate rusty_asm;
-# use rusty_asm::rusty_asm;
-#
-# #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 // Sends 1, 2, or 4 bytes at once to an ISA address (x86/x64).
 unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
     rusty_asm! {
@@ -263,7 +234,6 @@ unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
         }
     };
 }
-# fn main() {}
 ```
 
 I have an idea of how this limitation could be lifted, but it's a breaking change to Syn. In
@@ -273,11 +243,6 @@ need there. So, while it's not the cleanest solution, the above example would ha
 changed to something like this:
 
 ```rust
-# #![feature(asm)]
-# extern crate rusty_asm;
-# use rusty_asm::rusty_asm;
-#
-# #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 // Sends 1, 2, or 4 bytes at once to an ISA address (x86/x64).
 unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
     rusty_asm! {                     // These two lines could actually be removed. I've left
@@ -304,5 +269,4 @@ unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
         }}
     };
 }
-# fn main() {}
 ```
