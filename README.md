@@ -119,7 +119,7 @@ In addition, you can specify that you'll clobber a particular register (or that 
 clobber(<constraint>);
 ```
 
-where `<constraint>` is either the name of a register (like `"{eax}"`) or `"memory"`.
+where `<constraint>` is either the name of a register (like `"eax"`) or `"memory"`.
 
 These statements correspond to LLVM constraints in the following way:
 

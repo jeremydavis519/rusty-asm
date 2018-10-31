@@ -141,7 +141,7 @@
 //! clobber(<constraint>);
 //! ```
 //!
-//! where `<constraint>` is either the name of a register (like `"{eax}"`) or `"memory"`.
+//! where `<constraint>` is either the name of a register (like `"eax"`) or `"memory"`.
 //!
 //! These statements correspond to LLVM constraints in the following way:
 //!
@@ -356,13 +356,17 @@ use unicode_xid::UnicodeXID;
 /// [module documentation]: index.html
 #[proc_macro]
 pub fn rusty_asm(ts: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    match syn::parse2::<RustyAsmBlock>(ts.into()) {
+    rusty_asm_internal(ts.into()).into()
+}
+
+fn rusty_asm_internal(ts: TokenStream) -> TokenStream {
+    match syn::parse2::<RustyAsmBlock>(ts) {
         Ok(rusty_block) => quote!(#rusty_block),
         Err(x) => {
             let message = format!("{}", x);
             quote!(compile_error!(#message))
         }
-    }.into()
+    }
 }
 
 struct RustyAsmBlock {
@@ -923,3 +927,37 @@ fn help<T: Into<String>>(span: Span, message: T) {
 
 #[cfg(not(all(feature = "nightly", feature = "proc-macro")))]
 fn help<T: Into<String>>(_: Span, _: T) {}
+
+#[cfg(test)]
+mod tests {
+    extern crate runtime_macros;
+    use self::runtime_macros::emulate_macro_expansion;
+    use super::rusty_asm_internal;
+    use std::{env, fs};
+    use std::path::PathBuf;
+
+    #[test]
+    fn code_coverage() {
+        // Loop through all the files in `tests/` and its subdirectories.
+        let mut path = env::current_dir().unwrap();
+        path.push("tests");
+        cover_tests(path);
+    }
+
+    fn cover_tests(path: PathBuf) {
+        match fs::read_dir(path.clone()) {
+            Ok(dir) => {
+                for dir_entry in dir {
+                    if let Ok(dir_entry) = dir_entry {
+                        cover_tests(dir_entry.path());
+                    }
+                }
+            },
+            Err(_) => {
+                if let Ok(file) = fs::File::open(path) {
+                    emulate_macro_expansion(file, "rusty_asm", rusty_asm_internal);
+                }
+            }
+        }
+    }
+}

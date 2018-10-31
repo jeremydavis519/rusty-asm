@@ -17,6 +17,10 @@
 extern crate rusty_asm;
 use rusty_asm::rusty_asm;
 
+//extern crate compiletest_rs as compiletest;
+
+use std::path::Path;
+
 #[test]
 fn empty() {
     rusty_asm! {}
@@ -74,6 +78,78 @@ fn explicit_types() {
     assert_eq!(util::sub_u8(0, u8::max_value()), -(u8::max_value() as i16));
 }
 
+#[test]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn clobbers() {
+    for x in 0 .. 20 {
+        for y in 1 .. 21 {
+            assert_eq!(util::div(x, y) as u64, x / (y as u64));
+        }
+    }
+}
+
+#[test]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn shadow_bridge_var() {
+    unsafe {
+        rusty_asm! {
+            let mut a: u32: inout("r") = 0;
+            let b: in("r") = 31u32;
+            asm() { // Empty parentheses here are acceptable.
+                "addl $b, $a"
+            }
+            assert_eq!(b, 31);
+            let b: in("r") = 15u32;
+            asm {
+                "subl $b, $a"
+            }
+            assert_eq!(a, 0 + 31 - 15);
+            assert_eq!(b, 15);
+        }
+    }
+}
+
+#[test]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn literal_dollar() {
+    unsafe {
+        rusty_asm! {
+            let mut c: u8: out("r");
+            asm {
+                "movb $$0x40, $c"
+            }
+            assert_eq!(c, 0x40);
+        }
+    }
+}
+
+#[test]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn bad_identifiers() {
+    unsafe {
+        rusty_asm! {
+            let mut x: u32: inout("r") = 2;
+            // The dollar sign here should produce a warning but still work.
+            asm("intel") {
+                "shl $0, 3"
+            }
+            assert_eq!(x, 2 << 3);
+        }
+    }
+}
+
+/*#[test]
+fn compile_fail() {
+    let mut config = compiletest::Config::default();
+
+    config.mode = "compile-fail".parse().unwrap();
+    config.src_base = Path::new("tests").join("compile-fail");
+    config.link_deps(); // Give dependency paths to rustc
+    config.clean_rmeta();
+
+    compiletest::run_tests(&config);
+}*/
+
 mod util {
     use rusty_asm::rusty_asm;
 
@@ -81,12 +157,13 @@ mod util {
     pub fn add(a: usize, b: usize) -> usize {
         unsafe {
             rusty_asm! {
-                let mut a: inout("r") = a;
+                ; ;; // Extra semicolons should be ignored.
+                let mut a: inout("r") = a;;
                 let b: in("r") = b;
 
-                asm("intel") {
+                ;asm("intel") {
                     "add $a, $b"
-                }
+                } ;
 
                 a
             }
@@ -104,7 +181,35 @@ mod util {
                     "subw $b, $a"
                 }
 
-                a as i16
+                a
+            }
+        }
+    }
+
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    pub fn div(a: u64, b: u32) -> u32 {
+        unsafe {
+            rusty_asm! {
+                // We can't divide by zero.
+                assert_ne!(b, 0);
+
+                let _dividend_lo: in("{eax}") = (a & 0xffff_ffff) as u32;
+                let _dividend_hi: in("{edx}") = ((a >> 32) & 0xffff_ffff) as u32;
+                let divisor: in("r") = b;
+                let mut quotient: out("{eax}");
+                clobber("edx"); // Ignoring the remainder
+
+                // If we didn't do this check here, the `asm` block might cause a crash that would
+                // bypass Rust's `panic` mechanism. The x86 DIV instruction causes a hardware-level
+                // divide-by-zero exception if the quotient doesn't fit in the target register (32
+                // bits in this case).
+                assert!(a < (b as u64) << 32);
+
+                asm("intel") {
+                    "div $divisor"
+                }
+
+                quotient
             }
         }
     }
