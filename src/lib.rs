@@ -56,7 +56,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! rusty-asm = "0.1.0"
+//! rusty-asm = "0.1.1"
 //! ```
 //!
 //! Then reference the crate in your main source file and activate the features you'll need:
