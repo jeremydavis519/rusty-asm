@@ -197,6 +197,9 @@
 //!
 //! ## Usage Examples
 //!
+//! Note that while all of these examples use x86 assembly, `rusty_asm!` should work with any assembly dialect that Rust supports (which
+//! probably means any dialect that LLVM supports).
+//!
 //! ```ignore
 //! # #![feature(asm)]
 //! # extern crate rusty_asm;

@@ -180,6 +180,9 @@ more information.
 
 ## Usage Examples
 
+Note that while all of these examples use x86 assembly, `rusty_asm!` should work with any assembly dialect that Rust supports (which
+probably means any dialect that LLVM supports).
+
 ```rust
 // Disables interrupts on an x86 CPU.
 unsafe fn disable_interrupts() {
