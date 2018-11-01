@@ -166,7 +166,7 @@ fn clobber_overlap() {
     unsafe {
         rusty_asm! {
             // Make sure the conflicting clobber is automatically removed, not the output.
-            let eax: u32: out("{eax}");
+            let mut eax: u32: out("{eax}");
             clobber("eax");
             asm {
                 "movl $$0x14, %eax"
@@ -180,7 +180,7 @@ fn clobber_overlap() {
         rusty_asm! {
             // Try it again with the output and clobber switched.
             clobber("eax");
-            let eax: u32: out("{eax}");
+            let mut eax: u32: out("{eax}");
             asm {
                 "movl $$0x14, %eax"
             }
