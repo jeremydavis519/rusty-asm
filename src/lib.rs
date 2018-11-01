@@ -758,7 +758,15 @@ impl ToTokens for InnerAsmBlock {
             let asm_span = asm_unchanged.span();
 
             // Replace every occurrence of `$<ident>` in the ASM code with the appropriate `$0`, `$1`, etc.
-            let llvm_asm = self.replace_identifiers(asm_unchanged.value().as_str(), asm_span);
+            let (llvm_asm, used_idents) = self.replace_identifiers(asm_unchanged.value().as_str(), asm_span);
+
+            // Warn the programmer if one of the available bridge variables wasn't referenced in the ASM code.
+            for var in self.bridge_variables_out.iter().chain(self.bridge_variables_in.iter()) {
+                if !used_idents.contains(&var.ident.to_string()) {
+                    warn(var.ident.span(), "bridge variable not used");
+                    help(asm_span, "in this `asm` block");
+                }
+            }
 
             let asm_str = LitStr::new(llvm_asm.as_str(), asm_span);
             let constraints_out = self.bridge_variables_out.iter().map(|v| v.constraint_as_tokens());
@@ -775,8 +783,9 @@ impl ToTokens for InnerAsmBlock {
 impl InnerAsmBlock {
     // Replaces every occurrence of `$<ident>` in `orig` with the appropriate numeral reference to an
     // input or output register, if the identifier matches a bridge variable.
-    fn replace_identifiers(&self, orig: &str, span: Span) -> String {
+    fn replace_identifiers(&self, orig: &str, span: Span) -> (String, HashSet<String>) {
         let mut result = String::new();
+        let mut used_idents = HashSet::new();
         let mut chars = orig.chars();
         while let Some(c) = chars.next() {
             result.push(c);
@@ -786,9 +795,10 @@ impl InnerAsmBlock {
                     if c2 == '$' {
                         // Keep the "$$" around so LLVM will see it.
                         result.push(c2);
-                    } else if let Some(replacement) = self.consume_translate_ident(rest, &mut chars, span) {
+                    } else if let Some((ident, replacement)) = self.consume_translate_ident(rest, &mut chars, span) {
                         // A defined identifier was found. Replace it with its position in the register lists.
                         result.push_str(replacement.as_str());
+                        used_idents.insert(ident);
                     } else {
                         // No identifier found. Issue a warning.
                         result.push(c2);
@@ -802,12 +812,12 @@ impl InnerAsmBlock {
                 }
             }
         }
-        result
+        (result, used_idents)
     }
 
     // Consumes and translates the next identifier if there is an identifier here.
     // When this is called, `chars` should be one character ahead of `orig`.
-    fn consume_translate_ident(&self, orig: &str, chars: &mut Chars, span: Span) -> Option<String> {
+    fn consume_translate_ident(&self, orig: &str, chars: &mut Chars, span: Span) -> Option<(String, String)> {
         let output_regs_count = self.bridge_variables_out.len();
         if let Some((ident, length)) = Self::parse_ident_at_start(orig) {
             // There's a valid identifier here. Let's see if it corresponds to a bridge variable.
@@ -816,13 +826,13 @@ impl InnerAsmBlock {
                 if length > 1 {
                     chars.nth(length - 2); // Skip past the identifier.
                 }
-                Some(format!("{}", index))
+                Some((ident, format!("{}", index)))
             } else if let Some(index) = Self::find_var_by_ident(&self.bridge_variables_in, &ident) {
                 // Found the identifier in the `in` bridge variables.
                 if length > 1 {
                     chars.nth(length - 2); // Skip past the identifier.
                 }
-                Some(format!("{}", index + output_regs_count))
+                Some((ident, format!("{}", index + output_regs_count)))
             } else {
                 // Couldn't find the identifier anywhere. Issue a warning.
                 warn(span, format!("unrecognized bridge variable `{}`", ident));
@@ -998,22 +1008,22 @@ fn parenthesized(input: ParseStream) -> parse::Result<ParseBuffer> {
     parenthesized!(content in input);
     Ok(content)
 }
-
+use std::fmt::Display;
 #[cfg(all(feature = "proc-macro", not(test)))]
-fn warn<T: Into<String>>(span: Span, message: T) {
-    span.unstable().warning(message);
+fn warn<T: Into<String>+Display>(span: Span, message: T) {
+    span.unstable().warning(message).emit();
 }
 
 #[cfg(not(all(feature = "proc-macro", not(test))))]
-fn warn<T: Into<String>>(_: Span, _: T) {}
+fn warn<T: Into<String>+Display>(_: Span, _: T) {}
 
 #[cfg(all(feature = "proc-macro", not(test)))]
-fn help<T: Into<String>>(span: Span, message: T) {
-    span.unstable().help(message);
+fn help<T: Into<String>+Display>(span: Span, message: T) {
+    span.unstable().help(message).emit();
 }
 
 #[cfg(not(all(feature = "proc-macro", not(test))))]
-fn help<T: Into<String>>(_: Span, _: T) {}
+fn help<T: Into<String>+Display>(_: Span, _: T) {}
 
 #[cfg(test)]
 mod tests {
