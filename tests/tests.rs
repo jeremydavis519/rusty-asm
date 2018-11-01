@@ -160,6 +160,39 @@ fn inout_out_inout() {
     }
 }
 
+#[test]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+fn clobber_overlap() {
+    unsafe {
+        rusty_asm! {
+            // Make sure the conflicting clobber is automatically removed, not the output.
+            let eax: u32: out("{eax}");
+            clobber("eax");
+            asm {
+                "movl $$0x14, %eax"
+            }
+            assert_eq!(eax, 0x14);
+            asm {
+                "movl $$0x28, %eax"
+            }
+            assert_eq!(eax, 0x28);
+        }
+        rusty_asm! {
+            // Try it again with the output and clobber switched.
+            clobber("eax");
+            let eax: u32: out("{eax}");
+            asm {
+                "movl $$0x14, %eax"
+            }
+            assert_eq!(eax, 0x14);
+            asm {
+                "movl $$0x28, %eax"
+            }
+            assert_eq!(eax, 0x28);
+        }
+    }
+}
+
 // TODO: This test can be uncommented whenever compiletest_rs starts expanding macros.
 /*#[test]
 fn compile_fail() {
@@ -217,7 +250,7 @@ mod util {
                 assert_ne!(b, 0);
 
                 let _dividend_lo: in("{eax}") = (a & 0xffff_ffff) as u32;
-                let _dividend_hi: in("{edx}") = ((a >> 32) & 0xffff_ffff) as u32;
+                let mut _dividend_hi: in("{edx}") = ((a >> 32) & 0xffff_ffff) as u32;
                 let divisor: in("r") = b;
                 let quotient: out("{eax}");
                 clobber("edx"); // Ignoring the remainder

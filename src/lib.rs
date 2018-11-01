@@ -446,6 +446,7 @@ impl RustyAsmBlock {
                     stmt.bridge_variables_out = bridge_variables_out.clone();
                     stmt.bridge_variables_in = bridge_variables_in.clone();
                     stmt.clobbers = clobbers.clone();
+                    stmt.fix_overlapping_clobbers();
                 },
                 RustyAsmStmt::Stmt(_) => {}
             };
@@ -868,6 +869,52 @@ impl InnerAsmBlock {
         }
         None
     }
+
+    // Makes sure that the list of clobbers has nothing in common with the lists of inputs and outputs. The `asm!` macro
+    // may or may not require that, and it doesn't hurt in any case.
+    fn fix_overlapping_clobbers(&mut self) {
+        // If a clobber is the same as an output, remove the clobber and produce a warning, since
+        // that may or may not be what the programmer expects. In any case, having both an `out`
+        // variable and a clobber is confusing to the reader, so one should be removed.
+        for var in self.bridge_variables_out.iter() {
+            if let Some(reg) = var.explicit_register() {
+                for clobber in self.clobbers.clone().iter() {
+                    if clobber.constraint_as_str() == reg {
+                        warn(clobber.span(), "clobber points to same register as an output; ignoring clobber");
+                        help(var.constraint_span(), "output declared here");
+                        self.clobbers.remove(&clobber);
+                        break; // There are already no duplicate clobbers.
+                    }
+                }
+            }
+        }
+
+        // If a clobber is the same as an input, change the clobber into an output, bound to the
+        // same variable (since the `asm!` macro won't let us bind something to `_`).
+        for (i, var) in self.bridge_variables_in.clone().iter().enumerate() {
+            if let Some(reg) = var.explicit_register() {
+                for clobber in self.clobbers.clone().iter() {
+                    if clobber.constraint_as_str() == reg {
+                        // Add the output and link the input to it.
+                        let out_constraint = format!("={}", var.constraint_as_str());
+                        let in_constraint = format!("{}", self.bridge_variables_out.len());
+                        self.bridge_variables_out.push(BridgeVariable {
+                            ident: var.ident.clone(),
+                            llvm_constraint: (out_constraint, var.constraint_span())
+                        });
+                        self.bridge_variables_in.remove(i);
+                        self.bridge_variables_in.push(BridgeVariable {
+                            ident: var.ident.clone(),
+                            llvm_constraint: (in_constraint, var.constraint_span())
+                        });
+                        // Remove the clobber.
+                        self.clobbers.remove(&clobber);
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -888,6 +935,25 @@ impl BridgeVariable {
         // compiler) to have two output registers linked to the same Rust variable.
         format!("{}", self.ident) == format!("{}", other.ident)
     }
+
+    // Returns the name of the explicit register referenced by this variable's constraint, if any.
+    // For instance, with a constraint of `"{eax}"`, it returns `"eax"`.
+    pub fn explicit_register(&self) -> Option<&str> {
+        let constraint = self.llvm_constraint.0.as_str();
+        if constraint.starts_with('{') && constraint.ends_with('}') {
+            Some(&constraint[1 .. constraint.len() - 1])
+        } else {
+            None
+        }
+    }
+
+    pub fn constraint_as_str(&self) -> &str {
+        self.llvm_constraint.0.as_str()
+    }
+
+    pub fn constraint_span(&self) -> Span {
+        self.llvm_constraint.1
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -896,9 +962,17 @@ struct Clobber {
 }
 
 impl Clobber {
+    pub fn constraint_as_str(&self) -> &str {
+        self.llvm_constraint.0.as_str()
+    }
+
     fn constraint_as_lit_str(&self) -> LitStr {
-        let lit = LitStr::new(self.llvm_constraint.0.as_str(), self.llvm_constraint.1);
+        let lit = LitStr::new(self.constraint_as_str(), self.llvm_constraint.1);
         lit
+    }
+
+    pub fn span(&self) -> Span {
+        self.llvm_constraint.1
     }
 }
 
