@@ -41,6 +41,11 @@ looking up the required format every time. It works by using a procedural macro 
 variables capable of storing information about how they'll be used in upcoming inline ASM blocks, and (2) to parse `asm`
 blocks that allow variables defined with the new syntax to be used directly in the ASM code.
 
+### Change Log
+
+* 0.1 - Initial release
+* 0.2 - Inner blocks are now supported.
+
 ## Setup
 
 To use this crate, add the following to `Cargo.toml`:
