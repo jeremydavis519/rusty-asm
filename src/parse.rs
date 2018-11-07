@@ -16,7 +16,7 @@ use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::str::Chars;
 
-use proc_macro2::{Span, TokenStream, TokenTree};
+use proc_macro2::{Span, TokenStream, TokenTree, Delimiter};
 use quote::{ToTokens, TokenStreamExt};
 use syn::{Expr, Ident, LitStr, Type};
 use syn::parse::{self, Parse, ParseBuffer, ParseStream};
@@ -77,7 +77,7 @@ enum RustyAsmPiece {
     BridgeVarDecl(BridgeVarDecl),
     ClobberDecl(ClobberDecl),
     AsmBlock(AsmBlock),
-    TokenTree(TokenTree)
+    TokenTrees(Vec<TokenTree>)
 }
 
 impl RustyAsmPiece {
@@ -105,7 +105,7 @@ impl RustyAsmPiece {
                 // Not a bridge variable
                 let (tt, _) = input.cursor().token_tree().unwrap();
                 let _ = input.parse::<Token![let]>();
-                Ok(RustyAsmPiece::TokenTree(tt))
+                Ok(RustyAsmPiece::TokenTrees(vec![tt]))
             }
         } else if input.peek(keyword::clobber) {
             // Possibly a clobber declaration
@@ -118,7 +118,7 @@ impl RustyAsmPiece {
                 // Not a clobber
                 let (tt, _) = input.cursor().token_tree().unwrap();
                 let _ = input.parse::<keyword::clobber>();
-                Ok(RustyAsmPiece::TokenTree(tt))
+                Ok(RustyAsmPiece::TokenTrees(vec![tt]))
             }
         } else if input.peek(keyword::asm) {
             // Possibly an ASM block
@@ -136,12 +136,30 @@ impl RustyAsmPiece {
                 // Not an ASM block
                 let (tt, _) = input.cursor().token_tree().unwrap();
                 let _ = input.parse::<keyword::asm>();
-                Ok(RustyAsmPiece::TokenTree(tt))
+                Ok(RustyAsmPiece::TokenTrees(vec![tt]))
             }
+        } else if input.peek(Token![if]) || input.peek(Token![while]) {
+            // We don't support `if let` or `while let`, so avoid parsing any tokens until the upcoming block.
+            let tts = input.step(|cursor| {
+                let mut tts = Vec::new();
+                let mut rest = *cursor;
+                while let Some((tt, next)) = rest.token_tree() {
+                    match tt {
+                        TokenTree::Group(ref group) if group.delimiter() == Delimiter::Brace => return Ok((tts, rest)),
+                        _ => {
+                            tts.push(tt);
+                            rest = next;
+                        }
+                    };
+                }
+                // The block never came.
+                Err(cursor.error("unexpected end of input"))
+            })?;
+            Ok(RustyAsmPiece::TokenTrees(tts))
         } else {
             // Any other token tree
             let tt = input.step(|cursor| cursor.token_tree().ok_or(cursor.error("unexpected end of input")))?;
-            Ok(RustyAsmPiece::TokenTree(tt))
+            Ok(RustyAsmPiece::TokenTrees(vec![tt]))
         }
     }
 }
@@ -153,7 +171,11 @@ impl ToTokens for RustyAsmPiece {
             RustyAsmPiece::BridgeVarDecl(decl)         => decl.to_tokens(tokens),
             RustyAsmPiece::ClobberDecl(decl)           => decl.to_tokens(tokens),
             RustyAsmPiece::AsmBlock(block)             => block.to_tokens(tokens),
-            RustyAsmPiece::TokenTree(tt)               => tt.to_tokens(tokens)
+            RustyAsmPiece::TokenTrees(tts)             => {
+                for tt in tts {
+                    tt.to_tokens(tokens);
+                }
+            }
         }
     }
 }

@@ -50,18 +50,18 @@ fn add() {
 
 #[test]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn inner_block() {
-    unsafe {
-        rusty_asm! {
-            let mut sum: inout("r") = 0usize;
-            for i in 0 .. 20 {
-                let i: in("r") = (i + 1) as usize;
+fn inner_blocks() {
+    rusty_asm! {
+        let mut sum: inout("r") = 0usize;
+        for i in 0 .. 20 {
+            let i: in("r") = (i + 1) as usize;
+            unsafe {
                 asm("intel") {
                     "add $sum, $i"
                 }
             }
-            assert_eq!(sum, 210);
         }
+        assert_eq!(sum, 210);
     }
 }
 
