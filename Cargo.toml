@@ -1,7 +1,8 @@
 [package]
 name = "rusty-asm"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Jeremy Davis <jeremydavis519@gmail.com>"]
+edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "A layer of syntactic sugar between Rust and inline assembly"
 keywords = ["assembly", "assembler"]

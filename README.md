@@ -12,6 +12,7 @@ format as GCC uses for its own inline ASM--and that format isn't the most ergono
 [the OSDev wiki]: https://wiki.osdev.org/Inline_Assembly/Examples
 
 ```rust
+# #![feature(asm)]
 // Retrieves a value from memory in a different segment than the one currently being used (x86[-64])
 unsafe fn farpeekl(segment_selector: u16, offset: *const u32) -> u32 {
     let ret: u32;
@@ -24,6 +25,7 @@ unsafe fn farpeekl(segment_selector: u16, offset: *const u32) -> u32 {
     );
     ret
 }
+# fn main() {}
 ```
 
 (This example actually looks a little cleaner in my opinion than it does when written for GCC, but it could still use some work.)
@@ -45,15 +47,18 @@ To use this crate, add the following to `Cargo.toml`:
 
 ```toml
 [dependencies]
-rusty-asm = "0.1.1"
+rusty-asm = "0.2.0"
 ```
 
 Then reference the crate in your main source file and activate the features you'll need:
 
 ```rust
 #![feature(proc_macro_hygiene, asm)]
+# /*
 extern crate rusty_asm;
 use rusty_asm::rusty_asm; // Because who wants to write `rusty_asm::rusty_asm!`?
+# */
+# fn main() {}
 ```
 
 Note that you'll still need a nightly compiler for this. `rusty_asm` doesn't make inline ASM stable.
@@ -72,6 +77,10 @@ The following features are available:
 In the place where you want to add some inline ASM, call `rusty_asm!` like so:
 
 ```rust
+# extern crate rusty_asm;
+# use rusty_asm::rusty_asm;
+# fn main() {
+# unsafe {
 rusty_asm! {
     // (arbitrary Rust statements go here)
 
@@ -81,6 +90,8 @@ rusty_asm! {
 
     // (possibly some cleanup code here)
 }
+# }
+# }
 ```
 
 The contents of the `asm` block need to be a string literal to make sure that Rust's parser doesn't mess up the
@@ -104,16 +115,13 @@ order to define a bridge variable, you'll need to use one of three keywords that
 Each of these keywords is used in a "let" statement to define a bridge variable. The exact syntax is as follows:
 
 ```text
-let <identifier>: [<type>:] in(<constraint>) [= <expression>];
-let mut <identifier>: [<type>:] out(<constraint>) [= <expression>];
-let mut <identifier>: [<type>:] inout(<constraint>) [= <expression>];
+let [mut] <identifier>: [<type>:] in(<constraint>) [= <expression>];
+let [mut] <identifier>: [<type>:] out(<constraint>) [= <expression>];
+let [mut] <identifier>: [<type>:] inout(<constraint>) [= <expression>];
 ```
 
-Currently, those `mut` assignments are hard rules. The parser won't accept a mutable `in` variable or an immutable `out` or
-`inout` variable. That restriction may be lifted in the future if it turns out to be an issue. The idea is that their
-mutability in Rust should match their mutability in ASM. The optional `<type>` is any Rust type, as far as the macro knows,
-but it should be something that makes sense to put in the appropriate register (e.g. `usize`, `i8`, etc. for a general-purpose
-integer register).
+The optional `<type>` is any Rust type, as far as the macro knows, but it should be something that makes sense to put in the
+appropriate register (e.g. `usize`, `i8`, etc. for a general-purpose integer register).
 
 In addition, you can specify that you'll clobber a particular register (or that you'll clobber memory) with this syntax:
 
@@ -166,65 +174,15 @@ values can be moved to variables outside the macro's scope before it ends, using
 In addition, just like any of Rust's code blocks, this one has a return value that can be used by ending the block with an
 expression.
 
-## Further Reading
-
-There are too many platform-specific constraints and options that you can specify to list them all here. Follow these links for
-more information.
-
-* [The Rust book: Inline Assembly chapter]. Discusses what can be done with the `asm!` macro.
-* [LLVM's inline assembly documentation]. Documents exactly what is allowed in LLVM inline assembly (and therefore in Rust's `asm!`
-  invocations), along with platform-specific details.
-
-[The Rust book: Inline Assembly chapter]: https://doc.rust-lang.org/1.12.0/book/inline-assembly.html
-[LLVM's inline assembly documentation]: http://llvm.org/docs/LangRef.html#inline-assembler-expressions
-
-## Usage Examples
-
-Note that while all of these examples use x86 assembly, `rusty_asm!` should work with any assembly dialect that Rust supports (which
-probably means any dialect that LLVM supports).
+Also, as of version 0.2, the macro also correctly handles inner blocks, shadowing and dropping bridge variables just like Rust
+shadows and drops regular variables. That means you can now write code like this:
 
 ```rust
-// Disables interrupts on an x86 CPU.
-unsafe fn disable_interrupts() {
-    rusty_asm! {
-        asm("volatile") { // This block has to be marked "volatile" to make sure the compiler, seeing
-           "cli"          // no outputs and no clobbers, doesn't assume it does nothing and
-        }                 // decide to "optimize" it away.
-    };
-}
-```
-
-```rust
-// Shifts the hexadecimal digits of `existing` up and puts `digit` in the resulting gap.
-fn append_hex_digit(existing: usize, digit: u8) -> usize {
-    assert!(digit < 0x10);
-    unsafe {
-        rusty_asm! {
-            let mut big: inout("r") = existing;
-            let little: in("r") = digit as usize;
-
-            asm {"
-                shll %4, $big
-                orl $little, $big
-            "}
-
-            big
-        }
-    }
-}
-
-assert_eq!(append_hex_digit(0, 0), 0);
-assert_eq!(append_hex_digit(0, 0xf), 0xf);
-assert_eq!(append_hex_digit(4, 2), 0x42);
-```
-
-## Limitations
-
-While `rusty_asm!` tries to parse arbitrary Rust code, it can't yet do anything with the code
-inside nested blocks. So, for instance, the following code doesn't compile because it tries to
-define a bridge variable and use an `asm` block inside `if` and `else` blocks:
-
-```rust
+# #![feature(asm)]
+# extern crate rusty_asm;
+# use rusty_asm::rusty_asm;
+#
+# #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 // Sends 1, 2, or 4 bytes at once to an ISA address (x86/x64).
 unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
     rusty_asm! {
@@ -248,39 +206,89 @@ unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
         }
     };
 }
+# fn main() {}
 ```
 
-I have an idea of how this limitation could be lifted, but it's a breaking change to Syn. In
-the meantime, the workaround if you need extra blocks within a `rusty_asm!` invocation is to
-invoke `rusty_asm!` again inside each of those blocks, redefining any bridge variables you'll
-need there. So, while it's not the cleanest solution, the above example would have to be
-changed to something like this:
+Defining bridge variables in `if let` and `while let` constructions is still not supported, since Rust doesn't support explicit
+type annotations in them either, and I imagine the syntax would become overly complex.
+
+## Further Reading
+
+There are too many platform-specific constraints and options that you can specify to list them all here. Follow these links for
+more information.
+
+* [The Rust book: Inline Assembly chapter]. Discusses what can be done with the `asm!` macro.
+* [LLVM's inline assembly documentation]. Documents exactly what is allowed in LLVM inline assembly (and therefore in Rust's `asm!`
+  invocations), along with platform-specific details.
+
+[The Rust book: Inline Assembly chapter]: https://doc.rust-lang.org/1.12.0/book/inline-assembly.html
+[LLVM's inline assembly documentation]: http://llvm.org/docs/LangRef.html#inline-assembler-expressions
+
+## Usage Examples
+
+Note that while all of these examples use x86 assembly, `rusty_asm!` should work with any assembly dialect that Rust supports (which
+probably means any dialect that LLVM supports).
 
 ```rust
-// Sends 1, 2, or 4 bytes at once to an ISA address (x86/x64).
-unsafe fn poke_isa(port: u16, value: usize, bytes: u8) {
-    rusty_asm! {                     // These two lines could actually be removed. I've left
-        let port: in("{dx}") = port; // them in to show a possible worst-case workaround.
-        if bytes == 1 { rusty_asm! {
-            let port: in("{dx}") = port; // Need to redefine `port` for the inner macro.
-            let value: in("{al}") = value as u8;
-            asm("volatile", "intel") {
-                "out $port, $value"
-            }
-        }} else if bytes == 2 { rusty_asm! {
-            let port: in("{dx}") = port;
-            let value: in("{ax}") = value as u16;
-            asm("volatile", "intel") {
-                "out $port, $value"
-            }
-        }} else { rusty_asm! {
-            assert_eq!(bytes, 4);
-            let port: in("{dx}") = port;
-            let value: in("{eax}") = value as u32;
-            asm("volatile", "intel") {
-                "out $port, $value"
-            }
-        }}
+# #![feature(asm)]
+# extern crate rusty_asm;
+# use rusty_asm::rusty_asm;
+#
+# #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+// Disables interrupts on an x86 CPU.
+unsafe fn disable_interrupts() {
+    rusty_asm! {
+        asm("volatile") { // This block has to be marked "volatile" to make sure the compiler, seeing
+           "cli"          // no outputs and no clobbers, doesn't assume it does nothing and
+        }                 // decide to "optimize" it away.
     };
+}
+# fn main() {}
+```
+
+```rust
+# #![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+# #![feature(asm)]
+# extern crate rusty_asm;
+# use rusty_asm::rusty_asm;
+#
+// Shifts the hexadecimal digits of `existing` up and puts `digit` in the resulting gap.
+fn append_hex_digit(existing: usize, digit: u8) -> usize {
+    assert!(digit < 0x10);
+    unsafe {
+        rusty_asm! {
+            let mut big: inout("r") = existing;
+            let little: in("r") = digit as usize;
+
+            asm {"
+                shll %4, $big
+                orl $little, $big
+            "}
+
+            big
+        }
+    }
+}
+
+# fn main() {
+assert_eq!(append_hex_digit(0, 0), 0);
+assert_eq!(append_hex_digit(0, 0xf), 0xf);
+assert_eq!(append_hex_digit(4, 2), 0x42);
+# }
+```
+
+## Limitations
+
+The bridge variable declaration syntax is slightly more restrictive than that of general `let` statements in that it only allows
+an identifier after the `let` keyword, not an arbitrary pattern. So, for instance, this statement would not work:
+
+```rust
+# #![feature(asm)]
+# extern crate rusty_asm
+# use rusty_asm::rusty_asm;
+#
+rusty_asm! {
+    let (a, b): (in("r"), out("r")) = (12, 14);
+    /* ... */
 }
 ```
