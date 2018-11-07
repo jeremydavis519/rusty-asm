@@ -368,22 +368,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn compile_fail() {
-        // Loop through all the files in `tests/compile-fail`, making sure none of them compile.
-        let mut path = env::current_dir().unwrap();
-        path.push("tests");
-        path.push("compile-fail");
-        for res in path.read_dir().unwrap() {
-            let dir_entry = res.unwrap();
-            let path = dir_entry.path();
-            if path.is_file() {
-                println!("{:#?} shouldn't compile", path);
-                cover_tests(path, false);
-            }
-        }
-    }
-
     fn cover_tests(path: PathBuf, should_compile: bool) {
         if let Ok(file) = fs::File::open(path) {
             let res = emulate_macro_expansion_fallible(file, "rusty_asm", rusty_asm_internal);
